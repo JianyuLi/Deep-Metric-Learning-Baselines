@@ -25,8 +25,9 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
-import pretrainedmodels.utils as utils
-import auxiliaries as aux
+#import pretrainedmodels.utils as utils
+#import auxiliaries as aux
+import hub_read
 
 
 """============================================================================"""
@@ -56,6 +57,9 @@ def give_dataloaders(dataset, opt):
     #Move datasets to dataloaders.
     dataloaders = {}
     for key,dataset in datasets.items():
+        if key == "training" and opt.hub_train_dir != "":
+            dataloaders[key] = torch.utils.data.DataLoader(dataset, collate_fn = hub_read.hub_collate_fn_2, pin_memory = True, drop_last = True)
+            continue
         is_val = dataset.is_validation
         dataloaders[key] = torch.utils.data.DataLoader(dataset, batch_size=opt.bs, num_workers=opt.kernels, shuffle=not is_val, pin_memory=True, drop_last=not is_val)
 
@@ -99,8 +103,11 @@ def give_CUB200_datasets(opt):
     train,test = keys[:len(keys)//2], keys[len(keys)//2:]
     train_image_dict, val_image_dict = {key:image_dict[key] for key in train},{key:image_dict[key] for key in test}
 
+    if opt.hub_train_dir != '':
+        train_dataset = hub_read.HubTrainDataSet(dataset_path = opt.hub_train_dir, items_per_class = opt.samples_per_class, batch_size=opt.bs, num_workers = opt.kernels, arch=opt.arch)
+    else:
+        train_dataset = BaseTripletDataset(train_image_dict, opt, samples_per_class=opt.samples_per_class)
 
-    train_dataset = BaseTripletDataset(train_image_dict, opt, samples_per_class=opt.samples_per_class)
     val_dataset   = BaseTripletDataset(val_image_dict,   opt, is_validation=True)
     eval_dataset  = BaseTripletDataset(train_image_dict, opt, is_validation=True)
 
